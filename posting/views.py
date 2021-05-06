@@ -39,9 +39,9 @@ class PostingView(View):
     
     def get(self, request):
         posting_list = [{
-            "username"  : User.objects.get(id=posting.user.id).username,
+            "username"  : posting.user.username,
             "content"   : posting.content,
-            "image_url" : [i.image_url for i in Image.objects.filter(posting_id=posting.id)],
+            "image_url" : [image.image_url for image in posting.image_set.all()],
             "create_at" : posting.created_at
             } for posting in Posting.objects.all()
         ]
@@ -55,9 +55,9 @@ class PostingSearchView(View):
             return JsonResponse({'message':'USER_DOES_NOT_EXIST'}, status=404)
 
         posting_list = [{
-            "username"  : User.objects.get(id=user_id).username,
+            "username"  : posting.user.username,
             "content"   : posting.content,
-            "image_url" : [i.image_url for i in Image.objects.filter(posting_id=posting.id)],
+            "image_url" : [image.image_url for image in posting.image_set.all()],
             "create_at" : posting.created_at
             } for posting in Posting.objects.filter(user_id=user_id)
         ]
@@ -78,7 +78,7 @@ class PostingDetailView(View):
         if user != posting.user:
             return JsonResponse({'message':'INVALID_USER'}, status=401)
 
-        Posting.objects.filter(id=posting.id).delete()
+        Posting.objects.filter(id=posting_id).delete()
         return JsonResponse({'message': 'SUCCESS'}, status=200)
 
     @login_decorator
@@ -179,21 +179,13 @@ class LikeView(View):
             if not posting_id:
                 return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
-            if not Posting.objects.filter(id=posting_id).exists():
-                return JsonResponse({'message':"POSTING_DOES_NOT_EXIST"}, status=404)
-            
-            posting = Posting.objects.get(id=posting_id)
-
-            if Like.objects.filter(user=user, posting=posting).exists():
-                Like.objects.filter(user=user, posting=posting).delete()
-                like_count = Like.objects.filter(posting=posting).count()
+            if Like.objects.filter(user=user, posting_id=posting_id).exists():
+                Like.objects.filter(user=user, posting_id=posting_id).delete()
+                like_count = Like.objects.filter(posting_id=posting_id).count()
                 return JsonResponse({'message': 'SUCCESS', 'like_count':like_count}, status=200)
 
-            Like.objects.create(
-                user    = user,
-                posting = posting
-            )
-            like_count = Like.objects.filter(posting=posting).count()
+            Like.objects.create(user=user, posting_id=posting_id)
+            like_count = Like.objects.filter(posting_id=posting_id).count()
             return JsonResponse({'message': 'SUCCESS', 'like_count': like_count}, status=201)
 
         except JSONDecodeError:
